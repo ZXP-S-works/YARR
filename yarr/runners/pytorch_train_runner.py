@@ -159,7 +159,7 @@ class PyTorchTrainRunner(TrainRunner):
         datasets = [r.dataset() for r in self._wrapped_buffer]
         data_iter = [iter(d) for d in datasets]
 
-        init_replay_size = self._get_sum_add_counts().astype(float)
+        init_replay_size = replay_size_before_train = self._get_sum_add_counts().astype(float)
         batch_times_buffers_per_sample = sum([
             r.replay_buffer.batch_size for r in self._wrapped_buffer[:self._buffers_per_batch]])
         process = psutil.Process(os.getpid())
@@ -174,7 +174,8 @@ class PyTorchTrainRunner(TrainRunner):
                 process.cpu_percent(interval=None)
 
             def get_replay_ratio():
-                size_used = batch_times_buffers_per_sample * i
+                # size_used = batch_times_buffers_per_sample * i
+                size_used = i
                 size_added = (
                     self._get_sum_add_counts()
                     - init_replay_size
@@ -194,9 +195,17 @@ class PyTorchTrainRunner(TrainRunner):
                         'Waiting for replay_ratio %f to be less than %f.' %
                         (replay_ratio, self._target_replay_ratio))
                 del replay_ratio
+                # replay_size_before_train = self._get_sum_add_counts().astype(float)
+
+            # # ZXP synchronizing env step and training step
+            # while True:
+            #     if i > self._get_sum_add_counts().astype(float) - replay_size_before_train:
+            #         time.sleep(1)
+            #     else:
+            #         break
+            # # ZXP end synchronizing
 
             t = time.time()
-
             sampled_task_ids = np.random.choice(
                 range(len(datasets)), self._buffers_per_batch, replace=False)
             sampled_batch = [next(data_iter[j]) for j in sampled_task_ids]
