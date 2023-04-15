@@ -43,7 +43,8 @@ class PyTorchTrainRunner(TrainRunner):
                  replay_ratio: Optional[float] = None,
                  tensorboard_logging: bool = True,
                  csv_logging: bool = False,
-                 buffers_per_batch: int = -1  # -1 = all
+                 buffers_per_batch: int = -1,  # -1 = all
+                 pre_train: int = -1,
                  ):
         super(PyTorchTrainRunner, self).__init__(
             agent, env_runner, wrapped_replay_buffer,
@@ -68,6 +69,7 @@ class PyTorchTrainRunner(TrainRunner):
         self._train_device = train_device
         self._tensorboard_logging = tensorboard_logging
         self._csv_logging = csv_logging
+        self._pre_train = pre_train
 
         if replay_ratio is not None and replay_ratio < 0:
             raise ValueError("max_replay_ratio must be positive.")
@@ -159,7 +161,7 @@ class PyTorchTrainRunner(TrainRunner):
         datasets = [r.dataset() for r in self._wrapped_buffer]
         data_iter = [iter(d) for d in datasets]
 
-        init_replay_size = replay_size_before_train = self._get_sum_add_counts().astype(float)
+        init_replay_size = self._get_sum_add_counts().astype(float)
         batch_times_buffers_per_sample = sum([
             r.replay_buffer.batch_size for r in self._wrapped_buffer[:self._buffers_per_batch]])
         process = psutil.Process(os.getpid())
@@ -183,27 +185,21 @@ class PyTorchTrainRunner(TrainRunner):
                 replay_ratio = size_used / (size_added + 1e-6)
                 return replay_ratio
 
-            if self._target_replay_ratio is not None:
-                # wait for env_runner collecting enough samples
-                while True:
-                    replay_ratio = get_replay_ratio()
-                    self._env_runner.current_replay_ratio.value = replay_ratio
-                    if replay_ratio < self._target_replay_ratio:
-                        break
-                    time.sleep(1)
-                    logging.debug(
-                        'Waiting for replay_ratio %f to be less than %f.' %
-                        (replay_ratio, self._target_replay_ratio))
-                del replay_ratio
-                # replay_size_before_train = self._get_sum_add_counts().astype(float)
-
-            # # ZXP synchronizing env step and training step
-            # while True:
-            #     if i > self._get_sum_add_counts().astype(float) - replay_size_before_train:
-            #         time.sleep(1)
-            #     else:
-            #         break
-            # # ZXP end synchronizing
+            if i < self._pre_train:
+                self._env_runner.current_replay_ratio.value = 0
+            else:
+                if self._target_replay_ratio is not None:
+                    # wait for env_runner collecting enough samples
+                    while True:
+                        replay_ratio = get_replay_ratio()
+                        self._env_runner.current_replay_ratio.value = replay_ratio
+                        if replay_ratio < self._target_replay_ratio:
+                            break
+                        time.sleep(0.2)
+                        logging.debug(
+                            'Waiting for replay_ratio %f to be less than %f.' %
+                            (replay_ratio, self._target_replay_ratio))
+                    del replay_ratio
 
             t = time.time()
             sampled_task_ids = np.random.choice(

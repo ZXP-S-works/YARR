@@ -150,7 +150,7 @@ class _EnvRunner(object):
                                         self._current_replay_ratio.value >
                                         self._target_replay_ratio)):
                             break
-                        time.sleep(1)
+                        time.sleep(0.2)
                         logging.debug(
                             'Agent. Waiting for replay_ratio %f to be more than %f' %
                             (self._current_replay_ratio.value, self._target_replay_ratio))
