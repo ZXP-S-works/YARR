@@ -132,6 +132,7 @@ class EnvRunner(object):
                             logging.error('Env %s failed too many times (%d times > %d)' %
                                           (p.name, n_failures, self._max_fails))
                             raise RuntimeError('Too many process failures.')
+                        logging.warning(p.exitcode)
                         logging.warning('Env %s failed (%d times <= %d). restarting' %
                                         (p.name, n_failures, self._max_fails))
                         p = self._internal_env_runner.restart_process(p.name)

@@ -166,6 +166,7 @@ class PyTorchTrainRunner(TrainRunner):
             r.replay_buffer.batch_size for r in self._wrapped_buffer[:self._buffers_per_batch]])
         process = psutil.Process(os.getpid())
         num_cpu = psutil.cpu_count()
+        inint_t = time.time()
 
         for i in range(self._iterations):
             self._env_runner.set_step(i)
@@ -215,11 +216,12 @@ class PyTorchTrainRunner(TrainRunner):
             t = time.time()
             self._step(i, batch)
             step_time = time.time() - t
+            elapse_t = int(time.time() - inint_t)
 
             if log_iteration and self._writer is not None:
                 replay_ratio = get_replay_ratio()
-                logging.info('Step %d. Sample time: %s. Step time: %s. Replay ratio: %s.' % (
-                             i, sample_time, step_time, replay_ratio))
+                logging.info('Elapsed time: %s. Step %d. Sample time: %s. Step time: %s. Replay ratio: %s.'
+                             % (elapse_t, i, sample_time, step_time, replay_ratio))
                 agent_summaries = self._agent.update_summaries()
                 env_summaries = self._env_runner.summaries()
                 self._writer.add_summaries(i, agent_summaries + env_summaries)
